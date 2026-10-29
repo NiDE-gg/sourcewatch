@@ -90,7 +90,7 @@ Keep the diagram in sync with the phase headings below: one node per phase, in o
 - [x] `/notify show` shares the list with the channel (E11). Done when: a test shows its reply is public, carries no private notices, and cannot ping.
 - [x] `/admin settings`: channel delivery, default delivery, default cooldown, active, and the player blacklist (E15). Done when: tests cover permission, each setting, that the off switch blocks every command but `/admin`, and the blacklist in creation, delivery and `/status`.
 - [x] People with the same notification in the same channel are mentioned together in one message (E16). Done when: delivery tests show one message mentioning everyone once, separate messages for different text or channels, no merging of DMs, and splitting of large groups.
-- [ ] Notifications start over when sourcewatch is turned back on in a Discord server, or when a refused delivery is switched back on (E19). Done when: store tests show that in both cases a condition that became true while it was skipped does not fire, and that it fires once the condition stops and holds again.
+- [x] Notifications start over when sourcewatch is turned back on in a Discord server, or when a refused delivery is switched back on (E19). Done when: store tests show that in both cases a condition that became true while it was skipped does not fire, and that it fires once the condition stops and holds again.
 
 ## Phase F: Release
 

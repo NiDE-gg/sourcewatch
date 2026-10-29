@@ -245,6 +245,53 @@ func TestAnAllServersEventHeldBackOnOneServerFiresAtItsNextPoll(t *testing.T) {
 	}
 }
 
+func TestNotificationsStartOverWhenSourcewatchIsTurnedBackOn(t *testing.T) {
+	s, _ := open(t)
+	a, _, _ := s.AddListener("guild:1", "a:1", "x", t0)
+	m2 := rules.Condition{Kind: rules.KindMap, Text: "m2"}
+	s.AddNotification(rules.Notification{UserID: "u1", Scope: "guild:1", ServerID: a.ID, ChannelID: "c", Conditions: []rules.Condition{m2}})
+	allServers(t, s, "u2", "guild:1", m2)
+	s.Process(a.ID, online("A", "m1"), t0) // both armed
+
+	off, on := false, true
+	s.UpdateGuildSettings("guild:1", GuildPatch{Active: &off})
+	s.Process(a.ID, online("A", "m2"), t0.Add(time.Minute)) // skipped while off
+	s.UpdateGuildSettings("guild:1", GuildPatch{Active: &on})
+	if evs, _ := s.Process(a.ID, online("A", "m2"), t0.Add(2*time.Minute)); len(evs) != 0 {
+		t.Fatalf("fired late for what became true while off: %+v", evs)
+	}
+	s.Process(a.ID, online("A", "m1"), t0.Add(3*time.Minute))
+	if evs, _ := s.Process(a.ID, online("A", "m2"), t0.Add(4*time.Minute)); len(evs) != 2 {
+		t.Fatalf("after the condition stopped and held again: %+v, want both", evs)
+	}
+	// Turning it on when it already is changes nothing.
+	s.Process(a.ID, online("A", "m1"), t0.Add(5*time.Hour))
+	s.UpdateGuildSettings("guild:1", GuildPatch{Active: &on})
+	if evs, _ := s.Process(a.ID, online("A", "m2"), t0.Add(6*time.Hour)); len(evs) != 2 {
+		t.Fatalf("armed notifications were reset: %+v", evs)
+	}
+}
+
+func TestAnUndeliverableNotificationStartsOverWhenSwitchedBackOn(t *testing.T) {
+	s, _ := open(t)
+	id, _ := s.UpsertServer("a:1")
+	n, _ := s.AddNotification(notif("u", id, rules.Notification{Delivery: rules.DeliveryDM,
+		Conditions: []rules.Condition{{Kind: rules.KindMap, Text: "m2"}}}))
+	s.Process(id, online("T", "m1"), t0) // armed
+	s.MarkUndeliverable(n)
+	s.Process(id, online("T", "m2"), t0.Add(time.Minute)) // skipped while undeliverable
+	if ns, _ := s.TakeUndeliverable("u"); len(ns) != 1 {
+		t.Fatalf("taken %+v", ns)
+	}
+	if evs, _ := s.Process(id, online("T", "m2"), t0.Add(2*time.Minute)); len(evs) != 0 {
+		t.Fatalf("fired late for what became true while stopped: %+v", evs)
+	}
+	s.Process(id, online("T", "m1"), t0.Add(3*time.Minute))
+	if evs, _ := s.Process(id, online("T", "m2"), t0.Add(4*time.Minute)); len(evs) != 1 {
+		t.Fatalf("after the condition stopped and held again: %+v", evs)
+	}
+}
+
 func notif(user string, server int64, n rules.Notification) rules.Notification {
 	n.UserID, n.ServerID, n.ChannelID = user, server, "chan-1"
 	return n
