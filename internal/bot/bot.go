@@ -147,6 +147,14 @@ func (b *Bot) Run(ctx context.Context) error {
 }
 
 func (b *Bot) onInteraction(s *discordgo.Session, ic *discordgo.InteractionCreate) {
+	// discordgo runs each handler in its own goroutine and does not recover, so a panic in
+	// autocomplete or a button would stop the whole service. Commands also recover in answer,
+	// which replies with an apology.
+	defer func() {
+		if p := recover(); p != nil {
+			b.log.Error("interaction panicked", "type", ic.Type, "panic", p)
+		}
+	}()
 	if ic.Type == discordgo.InteractionApplicationCommandAutocomplete {
 		if _, ok := find(ic.ApplicationCommandData().Name); !ok {
 			return

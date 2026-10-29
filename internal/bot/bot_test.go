@@ -596,6 +596,23 @@ func TestACrashingCommandIsAnsweredNotFatal(t *testing.T) {
 	}
 }
 
+func TestAPanicInAutocompleteOrAButtonIsLoggedNotFatal(t *testing.T) {
+	var logs strings.Builder
+	b := &Bot{log: slog.New(slog.NewTextHandler(&logs, nil))} // no store, so every lookup panics
+	o := str("map-name", "de")
+	o.Focused = true
+	ac := ndm("u1", "map", o)
+	ac.Type = discordgo.InteractionApplicationCommandAutocomplete
+	press := &discordgo.Interaction{Type: discordgo.InteractionMessageComponent, User: &discordgo.User{ID: "u1"},
+		Data: discordgo.MessageComponentInteractionData{CustomID: customResetConfirm}}
+	for _, in := range []*discordgo.Interaction{ac, press} {
+		b.onInteraction(nil, &discordgo.InteractionCreate{Interaction: in}) // returns instead of crashing
+	}
+	if n := strings.Count(logs.String(), "interaction panicked"); n != 2 {
+		t.Errorf("%d panics logged, want 2:\n%s", n, logs.String())
+	}
+}
+
 // --- layout ---
 
 // --- /notify: one subcommand per type, plus list and remove ---
