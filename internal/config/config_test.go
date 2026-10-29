@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -41,6 +42,33 @@ func TestLoadFileMode(t *testing.T) {
 	c, err := Load()
 	if err != nil || c.WebhookURL != "u" {
 		t.Fatalf("got %+v, %v", c, err)
+	}
+}
+
+func TestServerListIsTrimmed(t *testing.T) {
+	t.Setenv("SOURCEWATCH_CONFIG", "")
+	t.Setenv("SOURCEWATCH_DISCORD_TOKEN", "")
+	t.Setenv("SOURCEWATCH_SERVERS", " a:27015 , b:27016,,")
+	c, err := Load()
+	if err != nil || !reflect.DeepEqual(c.Servers, []string{"a:27015", "b:27016"}) {
+		t.Fatalf("got %q, %v", c.Servers, err)
+	}
+	// Only commas is no server at all.
+	t.Setenv("SOURCEWATCH_SERVERS", ",")
+	if _, err := Load(); err == nil {
+		t.Fatal("want the error for no servers and no token")
+	}
+}
+
+func TestServerListInTheFileIsTrimmed(t *testing.T) {
+	needFileModes(t)
+	p := filepath.Join(t.TempDir(), "c.json")
+	os.WriteFile(p, []byte(`{"servers":[" a:27015", "", "b:27016 "]}`), 0o600)
+	t.Setenv("SOURCEWATCH_CONFIG", p)
+	t.Setenv("SOURCEWATCH_SERVERS", "")
+	c, err := Load()
+	if err != nil || !reflect.DeepEqual(c.Servers, []string{"a:27015", "b:27016"}) {
+		t.Fatalf("got %q, %v", c.Servers, err)
 	}
 }
 
