@@ -48,6 +48,14 @@ func newEnv(t *testing.T) *env {
 		switch host {
 		case "localhost", "intranet.example":
 			return []net.IP{net.ParseIP("10.0.0.5")}, nil
+		case "v6only.example":
+			return []net.IP{net.ParseIP("2606:2800:220:1::1")}, nil
+		case "v6loopback.example":
+			return []net.IP{net.ParseIP("::1")}, nil
+		case "mixed.example":
+			return []net.IP{net.ParseIP("93.184.216.34"), net.ParseIP("fd00::1")}, nil
+		case "cgnat.example":
+			return []net.IP{net.ParseIP("100.64.1.1")}, nil
 		case "nxdomain.example":
 			return nil, errors.New("no such host")
 		}
@@ -116,6 +124,11 @@ func TestNormalizeAddr(t *testing.T) {
 		{"  1.2.3.4:27015  ", "1.2.3.4:27015", ""},
 		{"localhost:27015", "", "not a public address"},
 		{"intranet.example:27015", "", "not a public address"},
+		{"v6only.example:27015", "", "no IPv4 address"},
+		{"v6loopback.example:27015", "", "not a public address"},
+		{"mixed.example:27015", "", "not a public address"},
+		{"cgnat.example:27015", "", "not a public address"},
+		{"example.com:027016", "example.com:27016", ""},
 		{"host:0", "", "not a valid port"},
 		{"host:99999", "", "not a valid port"},
 		{"bad host:27015", "", "not a valid host"},
@@ -133,7 +146,7 @@ func TestNormalizeAddr(t *testing.T) {
 	}
 	// Real IP checks, without the stub.
 	lookupIP = net.LookupIP
-	for _, in := range []string{"127.0.0.1:27015", "192.168.1.5:27015", "10.0.0.1:27015", "169.254.1.1:27015", "172.16.0.1:27015", "0.0.0.0:27015"} {
+	for _, in := range []string{"127.0.0.1:27015", "192.168.1.5:27015", "10.0.0.1:27015", "169.254.1.1:27015", "172.16.0.1:27015", "0.0.0.0:27015", "100.64.0.1:27015", "198.18.0.1:27015"} {
 		if _, err := normalizeAddr(in); err == nil {
 			t.Errorf("%s should be refused", in)
 		}
