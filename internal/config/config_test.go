@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -146,5 +147,34 @@ func TestDatabaseNameKeepsAnExistingOldFile(t *testing.T) {
 	t.Setenv("SOURCEWATCH_DATABASE", "/elsewhere.db")
 	if c, _ := Load(); c.Database != "/elsewhere.db" {
 		t.Errorf("a configured path always wins: %q", c.Database)
+	}
+}
+
+// TestEverySettingIsInTheREADME keeps the configuration reference of the README complete: every
+// field of the file and every SOURCEWATCH_ variable that Load reads must be named there.
+func TestEverySettingIsInTheREADME(t *testing.T) {
+	readme, err := os.ReadFile(filepath.Join("..", "..", "README.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	ct := reflect.TypeOf(Config{})
+	for i := 0; i < ct.NumField(); i++ {
+		names = append(names, "`"+ct.Field(i).Tag.Get("json")+"`")
+	}
+	src, err := os.ReadFile("config.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range regexp.MustCompile(`env\("([A-Z_]+)"\)`).FindAllStringSubmatch(string(src), -1) {
+		names = append(names, "`SOURCEWATCH_"+m[1]+"`")
+	}
+	if len(names) < ct.NumField()+5 {
+		t.Fatalf("found only %v: the test no longer sees how Load reads its settings", names)
+	}
+	for _, n := range names {
+		if !strings.Contains(string(readme), n) {
+			t.Errorf("the README does not mention %s", n)
+		}
 	}
 }

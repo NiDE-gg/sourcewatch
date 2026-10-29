@@ -155,6 +155,16 @@ Something not working? Ask an admin.
 
 This part is for whoever runs the bot. sourcewatch is a single program for Linux. It keeps its data in one SQLite file, needs no database server, and opens no port: it only connects out, to Discord and to the game servers.
 
+### The Discord application
+
+1. In the [Discord Developer Portal](https://discord.com/developers/applications), make a **New Application**. Its **Application ID** (on **General Information**) goes in `application_id`.
+2. On **Bot**, use **Reset Token** and copy the token. It goes in `discord_token` and is a secret: anyone who has it controls the bot. sourcewatch needs none of the privileged gateway intents.
+3. Invite the bot to a Discord server with this link, after putting your application ID in it:
+   `https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot+applications.commands&permissions=3072`
+   It asks for **View Channels** and **Send Messages**, which channel notifications need. If people use `/notify` in threads, also give it **Send Messages in Threads**.
+
+The commands are registered at every start, for all Discord servers and for DMs with the bot. A new or changed command can take a moment to show up in Discord.
+
 ### Install
 
 On a Debian server:
@@ -171,7 +181,7 @@ sudo install -m 600 -o sourcewatch -g sourcewatch config.example.json /etc/sourc
 sudo install -m 644 deploy/sourcewatch.service /etc/systemd/system/sourcewatch.service
 ```
 
-3. Put the bot token and the application ID in the config with `sudoedit /etc/sourcewatch/config.json`. The file must keep mode `600`, or sourcewatch refuses to start.
+3. Put the bot token and the application ID in the config with `sudoedit /etc/sourcewatch/config.json` (see [Configuration](#configuration)). The file must keep mode `600`, or sourcewatch refuses to start.
 4. Start it, now and at every boot:
 
 <!-- install step 2 -->
@@ -182,3 +192,28 @@ systemctl status sourcewatch --no-pager
 ```
 
 The service runs as the `sourcewatch` user and keeps its database in `/var/lib/sourcewatch`. It starts again 5 seconds after a crash or a failed connection to Discord.
+
+### Configuration
+
+sourcewatch reads the JSON file named by `SOURCEWATCH_CONFIG`, which must have mode `600`. Then the `SOURCEWATCH_*` variables below replace what the file says. The bot token is a secret: keep it in the file (or in the environment), never in the repository.
+
+| In the file | Variable | What it is |
+|---|---|---|
+| | `SOURCEWATCH_CONFIG` | The path of the config file. Without it, only the variables are read. |
+| `discord_token` | `SOURCEWATCH_DISCORD_TOKEN` | The bot token (secret). Without one, sourcewatch only polls and stores, with no Discord bot. |
+| `application_id` | | The application ID. When empty, the bot's own user ID is used, which is normally the same. |
+| `servers` | `SOURCEWATCH_SERVERS` | Game servers to poll even when nobody in Discord watches them, as `host:port`. The variable takes them comma-separated. These are trusted, so a server on your own network works; servers added with `/server add` must have a public address. |
+| `database` | `SOURCEWATCH_DATABASE` | The SQLite file. Default: `sourcewatch.db` in the working directory, which is `/var/lib/sourcewatch` under the service. |
+| `disable_gametracker` | | `true` turns off the GameTracker fallback for servers that block queries. Default: `false`. |
+| `guild_id` | | Only to clean up after old versions, which registered the commands for one Discord server: its ID removes that copy at startup. Leave it empty otherwise. |
+| `webhook_url` | `SOURCEWATCH_WEBHOOK_URL` | Not used. The bot posts its messages itself. |
+
+sourcewatch needs at least a token or a server to start. Variables named `PAWNZ_*`, from before the project was renamed, are still read, and an existing `pawnz.db` is kept in use.
+
+### Running it
+
+- **Logs**: `journalctl -u sourcewatch -f`. Each start logs the version and the settings, with the secrets left out.
+- **Check it**: `/status` in a Discord server where the bot is, after `/server add`.
+- **Upgrade**: replace `/usr/local/bin/sourcewatch` and run `sudo systemctl restart sourcewatch`. The database is updated at startup by itself.
+- **Back up**: the database is `/var/lib/sourcewatch/sourcewatch.db`. Copy it while the service is stopped, or while it runs with `sqlite3 /var/lib/sourcewatch/sourcewatch.db ".backup /path/to/backup.db"`.
+- **Without systemd**: `SOURCEWATCH_DISCORD_TOKEN=… ./sourcewatch` works too. It stops cleanly on Ctrl+C or SIGTERM.
