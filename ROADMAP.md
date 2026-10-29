@@ -53,7 +53,7 @@ Keep the diagram in sync with the phase headings below: one node per phase, in o
 - [x] `playercount` fires once when its condition becomes true, rearms when it stops being true, and does not fire again within a configurable cooldown, default 60 minutes (C7). Done when: tests show one event for a sustained condition, none inside the cooldown, and a new event after it clears, rearms and the cooldown has passed.
 - [x] Suggest similar `player` and `map` values from history when there is no exact match (C5, C7). Done when: tests show exact match first, then prefix, substring and near-miss typos (for example `dust` and `de_dust` suggest `de_dust2`), and an empty list when nothing is similar.
 - [x] Per-user cooldowns of 5 seconds (C2). Done when: a test shows a second matching event inside 5 s is suppressed and one after 5 s is delivered.
-- [ ] An event held back by the per-user cooldown is not saved as fired, so it fires at the next poll (C2, C9). Done when: store tests show two notifications of one user firing in the same poll delivered one poll apart, and the same for a notification for all servers firing on two servers within 5 s.
+- [x] An event held back by the per-user cooldown is not saved as fired, so it fires at the next poll (C2, C9). Done when: store tests show two notifications of one user firing in the same poll delivered one poll apart, and the same for a notification for all servers firing on two servers within 5 s.
 
 ## Phase D: Delivery
 
