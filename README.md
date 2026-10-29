@@ -19,6 +19,7 @@ sourcewatch watches Source game servers (CS:S, CS2, TF2 and more) and tells you 
 - [Manage your notifications](#manage-your-notifications)
 - [Good to know](#good-to-know)
 - [What sourcewatch stores](#what-sourcewatch-stores)
+- [Run your own sourcewatch](#run-your-own-sourcewatch)
 
 ## Quick start
 
@@ -149,3 +150,35 @@ The default delivery and cooldown only apply to notifications made afterwards. E
 Your Discord user ID and your notification settings (delete them with `/notify remove` or `/notify reset`), each Discord server's admin settings and blacklist, and the players, maps and server names it sees on watched servers over time. That history is kept and cannot be deleted with these commands.
 
 Something not working? Ask an admin.
+
+## Run your own sourcewatch
+
+This part is for whoever runs the bot. sourcewatch is a single program for Linux. It keeps its data in one SQLite file, needs no database server, and opens no port: it only connects out, to Discord and to the game servers.
+
+### Install
+
+On a Debian server:
+
+1. Get the program. Either download `sourcewatch-linux-amd64` (or `-arm64`) from the [releases](../../releases) and rename it `sourcewatch`, or build it from a checkout of this repository with Go 1.26: `CGO_ENABLED=0 go build -o sourcewatch ./cmd/sourcewatch`.
+2. In a checkout of this repository, which has the example config and the service file, install the program, a user to run it as, the config and the service:
+
+<!-- install step 1 -->
+```sh
+sudo install -m 755 sourcewatch /usr/local/bin/sourcewatch
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin sourcewatch
+sudo install -d -m 750 -g sourcewatch /etc/sourcewatch
+sudo install -m 600 -o sourcewatch -g sourcewatch config.example.json /etc/sourcewatch/config.json
+sudo install -m 644 deploy/sourcewatch.service /etc/systemd/system/sourcewatch.service
+```
+
+3. Put the bot token and the application ID in the config with `sudoedit /etc/sourcewatch/config.json`. The file must keep mode `600`, or sourcewatch refuses to start.
+4. Start it, now and at every boot:
+
+<!-- install step 2 -->
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now sourcewatch
+systemctl status sourcewatch --no-pager
+```
+
+The service runs as the `sourcewatch` user and keeps its database in `/var/lib/sourcewatch`. It starts again 5 seconds after a crash or a failed connection to Discord.

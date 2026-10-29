@@ -66,6 +66,62 @@ jobs:
           test "$(docker inspect -f '{{.State.Running}}' sourcewatch)" = true
           docker stop sourcewatch
 
+  systemd:
+    name: README install under systemd (A3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.26.x'
+          check-latest: true
+      - name: Build, as the README says
+        run: CGO_ENABLED=0 go build -o sourcewatch ./cmd/sourcewatch
+      - name: Run the README install steps
+        run: |
+          # Each step is the sh block after an "<!-- install step N -->" line of the README.
+          step() {
+            awk -v want="<!-- install step $1 -->" '
+              $0 == want { on = 1; next }
+              on && /^```sh$/ { code = 1; next }
+              code && /^```$/ { exit }
+              code { print }' README.md
+          }
+          step 1 | tee step1.sh && test -s step1.sh && bash -ex step1.sh
+          # Instead of sudoedit: a server to poll and no token, so it runs without Discord.
+          echo '{"servers": ["127.0.0.1:27015"], "database": "sourcewatch.db"}' | sudo tee /etc/sourcewatch/config.json >/dev/null
+          test "$(sudo stat -c '%a %U' /etc/sourcewatch/config.json)" = "600 sourcewatch"
+          step 2 | tee step2.sh && test -s step2.sh && bash -ex step2.sh
+      - name: Check the service
+        run: |
+          systemd-analyze verify /etc/systemd/system/sourcewatch.service
+          for i in $(seq 1 20); do
+            sudo test -f /var/lib/sourcewatch/sourcewatch.db && break
+            sleep 0.5
+          done
+          systemctl is-active sourcewatch
+          sudo test -f /var/lib/sourcewatch/sourcewatch.db
+      - name: Kill it and see it restart
+        run: |
+          pid=$(systemctl show -p MainPID --value sourcewatch)
+          sudo kill -9 "$pid"
+          start=$(date +%s)
+          while :; do
+            now=$(systemctl show -p MainPID --value sourcewatch)
+            if [ "$now" != 0 ] && [ "$now" != "$pid" ] && systemctl is-active --quiet sourcewatch; then
+              break
+            fi
+            if [ $(( $(date +%s) - start )) -ge 15 ]; then
+              echo "not restarted after 15 s"
+              exit 1
+            fi
+            sleep 0.5
+          done
+          echo "restarted after $(( $(date +%s) - start )) s, PID $pid -> $now"
+      - name: Service log
+        if: always()
+        run: sudo journalctl -u sourcewatch --no-pager | tail -n 30
+
   vulncheck:
     name: Vulnerabilities
     runs-on: ubuntu-latest

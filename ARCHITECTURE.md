@@ -114,8 +114,9 @@ README.md  the guide for people using the bot
 assets/    logo.png, logo.svg
 scripts/   check_dlad.py (validates DECISIONS.md and ROADMAP.md)
 docs/      discord-guide.md (the guide to paste into a Discord channel, in messages under 2000 characters)
-.github/   workflows/ci.yml (format, vet, static build, race tests, Debian run, docs check, govulncheck, gitleaks),
-           workflows/release.yml (static Linux binaries for each v* tag)
+cmd/       sourcewatch/main.go (starts the poller and the bot together)
+internal/  app, bot, config, notify, poller, rules, store (one package per component of section C)
+deploy/    sourcewatch.service (the systemd unit, A3)
+.github/   workflows/ci.yml (format, vet, static build, race tests, Debian run, README install under systemd,
+           docs check, govulncheck, gitleaks), workflows/release.yml (static Linux binaries for each v* tag)
 ```
-
-Go source layout is to be set in Phase A scaffolding.
