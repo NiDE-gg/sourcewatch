@@ -201,6 +201,50 @@ func TestOfflineClosesSessionsAndKeepsTitle(t *testing.T) {
 	}
 }
 
+func TestAnEventHeldBackByTheUserCooldownFiresAtTheNextPoll(t *testing.T) {
+	s, _ := open(t)
+	id, _ := s.UpsertServer("a:1")
+	onMap, _ := s.AddNotification(notif("u", id, rules.Notification{Conditions: []rules.Condition{{Kind: rules.KindMap, Text: "m2"}}}))
+	full, _ := s.AddNotification(notif("u", id, rules.Notification{Conditions: []rules.Condition{{Kind: rules.KindPlayerCount, Op: ">=", N: 2}}}))
+	s.Process(id, online("T", "m1", "a"), t0)
+
+	// The map change brings players in: both fire in the same poll, and the user gets one message.
+	evs, _ := s.Process(id, online("T", "m2", "a", "b"), t0.Add(time.Minute))
+	if len(evs) != 1 || evs[0].NotificationID != onMap {
+		t.Fatalf("first poll: %+v, want only the map event", evs)
+	}
+	// The other was held back, not used up: it comes at the next poll, once.
+	evs, _ = s.Process(id, online("T", "m2", "a", "b"), t0.Add(2*time.Minute))
+	if len(evs) != 1 || evs[0].NotificationID != full {
+		t.Fatalf("next poll: %+v, want the player count event", evs)
+	}
+	if evs, _ := s.Process(id, online("T", "m2", "a", "b"), t0.Add(3*time.Minute)); len(evs) != 0 {
+		t.Fatalf("fired again: %+v", evs)
+	}
+}
+
+func TestAnAllServersEventHeldBackOnOneServerFiresAtItsNextPoll(t *testing.T) {
+	s, _ := open(t)
+	a, _, _ := s.AddListener("guild:1", "a:1", "x", t0)
+	b, _, _ := s.AddListener("guild:1", "b:2", "x", t0)
+	allServers(t, s, "u", "guild:1", rules.Condition{Kind: rules.KindMap, Text: "m2"})
+	s.Process(a.ID, online("A", "m1"), t0)
+	s.Process(b.ID, online("B", "m1"), t0)
+
+	// Both servers change map 2 s apart: the second is held back by the 5 s gap.
+	if evs, _ := s.Process(a.ID, online("A", "m2"), t0.Add(time.Minute)); len(evs) != 1 {
+		t.Fatalf("server A: %+v", evs)
+	}
+	if evs, _ := s.Process(b.ID, online("B", "m2"), t0.Add(time.Minute+2*time.Second)); len(evs) != 0 {
+		t.Fatalf("server B inside 5 s: %+v", evs)
+	}
+	// Server B's next poll delivers it.
+	evs, _ := s.Process(b.ID, online("B", "m2"), t0.Add(2*time.Minute+2*time.Second))
+	if len(evs) != 1 || evs[0].ServerID != b.ID {
+		t.Fatalf("server B next poll: %+v", evs)
+	}
+}
+
 func notif(user string, server int64, n rules.Notification) rules.Notification {
 	n.UserID, n.ServerID, n.ChannelID = user, server, "chan-1"
 	return n

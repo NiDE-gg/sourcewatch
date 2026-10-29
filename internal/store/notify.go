@@ -180,9 +180,10 @@ func queryNotifications(tx execer, where string, args ...any) ([]rules.Notificat
 }
 
 // Process is one poll result for one server. In a single transaction it stores the
-// new state and history, evaluates the notifications that apply to the server against it,
-// saves each notification's phase, and drops events for users who were messaged less than
-// UserCooldown ago. It returns the events to deliver.
+// new state and history, evaluates the notifications that apply to the server against it, and
+// saves each notification's phase. It returns the events to deliver. An event for a user who was
+// messaged less than UserCooldown ago (C2) is held back: its notification is left as it was, so it
+// fires at the next poll if its conditions still hold (C9).
 //
 // A notification for all servers is checked once for each server it covers, with its own phase and
 // cooldown for that server. The settings of a Discord server apply: where channel delivery is off
@@ -224,6 +225,15 @@ func (s *Store) Process(serverID int64, cur rules.Snapshot, now time.Time) ([]ru
 			}
 		}
 		upd, ev := rules.Evaluate(cur, n, now)
+		if ev != nil {
+			ok, err := allowUser(tx, ev.UserID, now)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				continue // held back: nothing is saved, so it is still armed at the next poll (C9)
+			}
+		}
 		if upd.Phase != n.Phase || !upd.LastFired.Equal(n.LastFired) {
 			if forAll {
 				err = saveState(tx, n.ID, serverID, upd)
@@ -241,13 +251,7 @@ func (s *Store) Process(serverID int64, cur rules.Snapshot, now time.Time) ([]ru
 		if ev.Delivery == rules.DeliveryChannel && !settings[n.Scope].ChannelDelivery && strings.HasPrefix(n.Scope, "guild:") {
 			ev.Delivery = rules.DeliveryDM // an admin turned channel delivery off here
 		}
-		ok, err := allowUser(tx, ev.UserID, now)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			events = append(events, *ev)
-		}
+		events = append(events, *ev)
 	}
 	return events, tx.Commit()
 }
