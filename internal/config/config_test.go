@@ -5,9 +5,19 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+// needFileModes skips a test that relies on Unix file mode bits, which Windows does not have.
+// The service runs on Debian (A3).
+func needFileModes(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no Unix file mode bits")
+	}
+}
 
 func TestLoadEnv(t *testing.T) {
 	t.Setenv("SOURCEWATCH_CONFIG", "")
@@ -20,6 +30,7 @@ func TestLoadEnv(t *testing.T) {
 }
 
 func TestLoadFileMode(t *testing.T) {
+	needFileModes(t)
 	p := filepath.Join(t.TempDir(), "c.json")
 	os.WriteFile(p, []byte(`{"webhook_url":"u","servers":["a:1","b:2"]}`), 0o644)
 	t.Setenv("SOURCEWATCH_CONFIG", p)
@@ -70,6 +81,7 @@ func TestNewEnvironmentNamesWinOverOldOnes(t *testing.T) {
 }
 
 func TestOldConfigVariableStillPointsAtTheFile(t *testing.T) {
+	needFileModes(t)
 	p := filepath.Join(t.TempDir(), "c.json")
 	os.WriteFile(p, []byte(`{"discord_token":"from-file"}`), 0o600)
 	t.Setenv("SOURCEWATCH_CONFIG", "")
