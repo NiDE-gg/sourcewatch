@@ -43,7 +43,8 @@ func count(t *testing.T, s *Store, table string) int {
 func TestMigrationCreatesSchemaOnEmptyDatabase(t *testing.T) {
 	s, path := open(t)
 	for _, table := range []string{"server_state", "players", "sessions", "map_history", "title_history", "status_history",
-		"notifications", "conditions", "notification_state", "user_cooldowns", "listeners", "guild_settings", "guild_blacklist"} {
+		"notifications", "conditions", "notification_state", "user_cooldowns", "listeners", "guild_settings", "guild_blacklist",
+		"server_players"} {
 		if count(t, s, table) != 0 {
 			t.Errorf("%s not empty", table)
 		}
@@ -633,6 +634,63 @@ func TestMigrationKeepsExistingNotifications(t *testing.T) {
 	}
 	if ns[1].Phase != rules.PhaseArmed || ns[1].Delivery != "dm" {
 		t.Errorf("an armed one stays armed: %+v", ns[1])
+	}
+}
+
+func TestPlayerNamesKeepsOneRowPerPlayerAndServer(t *testing.T) {
+	s, _ := open(t)
+	a, _ := s.UpsertServer("a:1")
+	b, _ := s.UpsertServer("b:1")
+	s.Process(a, online("A", "m", "alice", "bob"), t0)
+	s.Process(a, online("A", "m", "bob"), t0.Add(time.Minute))
+	s.Process(a, online("A", "m", "alice", "bob"), t0.Add(2*time.Minute)) // alice comes back: a new session
+	s.Process(b, online("B", "m", "alice"), t0)
+	if got := count(t, s, "sessions"); got != 4 {
+		t.Fatalf("sessions %d, want 4", got)
+	}
+	if got := count(t, s, "server_players"); got != 3 {
+		t.Errorf("server_players %d, want 3: a returning player adds no row", got)
+	}
+	for id, want := range map[int64][]string{a: {"alice", "bob"}, b: {"alice"}} {
+		names, err := s.PlayerNames(id)
+		sort.Strings(names)
+		if err != nil || !reflect.DeepEqual(names, want) {
+			t.Errorf("server %d: %v %v, want %v", id, names, err, want)
+		}
+	}
+}
+
+func TestMigrationFillsServerPlayersFromSessions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	db, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(1)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := len(migrations) - 1 // everything up to the server_players table
+	for i := 0; i < before; i++ {
+		if _, err := db.Exec(migrations[i]); err != nil {
+			t.Fatalf("migration %d: %v", i+1, err)
+		}
+	}
+	db.Exec(fmt.Sprintf("PRAGMA user_version = %d", before))
+	db.Exec("INSERT INTO servers(id, addr) VALUES (1, 'a:1'), (2, 'b:1')")
+	db.Exec("INSERT INTO players(id, name) VALUES (1, 'alice'), (2, 'bob')")
+	db.Exec(`INSERT INTO sessions(server_id, player_id, first_seen, last_seen, open)
+		VALUES (1,1,0,0,0), (1,1,1,1,0), (1,2,0,0,1), (2,2,0,0,0)`)
+	db.Close()
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if got := count(t, s, "server_players"); got != 3 {
+		t.Errorf("server_players %d, want 3", got)
+	}
+	names, _ := s.PlayerNames(1)
+	sort.Strings(names)
+	if !reflect.DeepEqual(names, []string{"alice", "bob"}) {
+		t.Errorf("names on server 1: %v", names)
 	}
 }
 
