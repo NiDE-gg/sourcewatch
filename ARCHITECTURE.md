@@ -114,6 +114,7 @@ README.md  the guide for people using the bot
 assets/    logo.png, logo.svg
 scripts/   check_dlad.py (validates DECISIONS.md and ROADMAP.md)
 docs/      discord-guide.md (the guide to paste into a Discord channel, in messages under 2000 characters)
+.github/   workflows/ci.yml (format, vet, static build, race tests, docs check, govulncheck, gitleaks)
 ```
 
 Go source layout is to be set in Phase A scaffolding.
