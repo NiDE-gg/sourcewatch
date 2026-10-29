@@ -58,17 +58,13 @@ func run(log *slog.Logger) error {
 		p.Fallback = poller.NewGameTracker() // used only when A2S gets no answer (B5)
 	}
 	mgr := poller.NewManager(ctx, p)
-	for _, addr := range cfg.Servers {
-		mgr.Watch(addr)
-	}
-	// Servers people asked the bot to watch come back after a restart.
+	// Servers people asked the bot to watch come back after a restart. Their first polls, and those
+	// of the config file's servers, are spread over the first minute.
 	addrs, err := st.AllListenerAddrs()
 	if err != nil {
 		return err
 	}
-	for _, addr := range addrs {
-		mgr.Watch(addr)
-	}
+	mgr.WatchAll(append(append([]string{}, cfg.Servers...), addrs...))
 
 	var botErr error
 	if cfg.DiscordToken != "" {

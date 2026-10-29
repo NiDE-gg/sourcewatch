@@ -44,7 +44,7 @@ poller ──A2S/UDP──> game servers
 
 | Component | Responsibility | Depends on | Owns (data/state) |
 |---|---|---|---|
-| Poller | Queries each server every 60 s with jitter (B3). `A2S_INFO` always, `A2S_PLAYER` only when players > 0. Challenge handshake per query, 2 s timeout, 2 retries, offline after 3 failed cycles. Bots filtered from counts. | A2S client (B2) | Nothing persistent |
+| Poller | Queries each server every 60 s with jitter (B3). At startup the first polls are spread over one interval. `A2S_INFO` always, `A2S_PLAYER` only when players > 0. Challenge handshake per query, 2 s timeout, 2 retries, offline after 3 failed cycles. Bots filtered from counts. | A2S client (B2) | Nothing persistent |
 | Store | Server list, last known state per server, notifications, per-user cooldowns. | SQLite | All persistent state |
 | Rules | Compares new state with last state and notifications. A matching rule out of its 5 s cooldown produces an event (C1, C2, C4). | Store | Nothing |
 | Notifiers | One interface, `Send(target, title, message)`. Providers are plugins. | Rules | Nothing |
