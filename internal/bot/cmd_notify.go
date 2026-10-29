@@ -397,12 +397,12 @@ func (b *Bot) notifyRemove(a actor, o opts) string {
 	if !ok {
 		return "Choose which notification to delete in the `id` option."
 	}
-	done, err := b.deps.Store.DeleteNotification(id, a.UserID)
+	done, err := b.deps.Store.DeleteNotification(id, a.UserID, a.Scope)
 	if err != nil {
 		return b.fail("remove notification", err)
 	}
 	if !done {
-		return fmt.Sprintf("You have no notification with ID %d.", id)
+		return fmt.Sprintf("You have no notification with ID %d here. See yours with `/notify list`.", id)
 	}
 	return fmt.Sprintf("✅ Deleted notification ID: %d.", id)
 }

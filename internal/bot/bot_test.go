@@ -1005,6 +1005,25 @@ func TestNotifyListAndRemove(t *testing.T) {
 	}
 }
 
+func TestRemoveOnlyDeletesANotificationMadeHere(t *testing.T) {
+	e := newEnv(t)
+	setupGuild(t, e, "a.example:27015")
+	e.b.execute(nguild("u1", 0, "status", str("value", "offline")))
+	id := int(ids(t, e, "u1")[0])
+
+	// The same user in another Discord server, and in a DM with the bot.
+	e.b.execute(guildServer(e, "g2", "z.example:27015"))
+	elsewhere := nguild("u1", 0, "remove", num("id", id))
+	elsewhere.GuildID = "g2"
+	for _, in := range []*discordgo.Interaction{elsewhere, ndm("u1", "remove", num("id", id))} {
+		contains(t, e.b.execute(in), fmt.Sprintf("no notification with ID %d here", id))
+	}
+	if len(ids(t, e, "u1")) != 1 {
+		t.Fatal("removed a notification made in another place")
+	}
+	contains(t, e.b.execute(nguild("u1", 0, "remove", num("id", id))), fmt.Sprintf("Deleted notification ID: %d", id))
+}
+
 func TestListGroupsByServer(t *testing.T) {
 	e := newEnv(t)
 	setupGuild(t, e, "a.example:27015", "b.example:27015")
