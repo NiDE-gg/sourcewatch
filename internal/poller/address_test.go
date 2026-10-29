@@ -2,8 +2,11 @@ package poller
 
 import (
 	"errors"
+	"fmt"
 	"net"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestPublic(t *testing.T) {
@@ -97,4 +100,68 @@ func TestPublicDialerChecksTheAddressOnEveryPoll(t *testing.T) {
 			t.Fatalf("dialed %v, want %v", dialed, want)
 		}
 	}
+}
+
+func TestLookupCacheKeepsAnswersForTheTTL(t *testing.T) {
+	now := time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC)
+	calls := map[string]int{}
+	fail := false
+	c := &LookupCache{
+		Lookup: func(host string) ([]net.IP, error) {
+			calls[host]++
+			if fail {
+				return nil, errors.New("dns down")
+			}
+			return []net.IP{net.ParseIP("93.184.216.34")}, nil
+		},
+		Now: func() time.Time { return now },
+	}
+	for i := 0; i < 3; i++ {
+		if ips, err := c.LookupIP("game.example"); err != nil || len(ips) != 1 {
+			t.Fatalf("%v %v", ips, err)
+		}
+		now = now.Add(time.Minute)
+	}
+	if calls["game.example"] != 1 {
+		t.Fatalf("%d lookups within the TTL, want 1", calls["game.example"])
+	}
+	now = now.Add(LookupTTL)
+	c.LookupIP("game.example")
+	if calls["game.example"] != 2 {
+		t.Fatalf("%d lookups after the TTL, want 2", calls["game.example"])
+	}
+
+	// A failed lookup is not kept: the next poll asks again.
+	fail = true
+	if _, err := c.LookupIP("other.example"); err == nil {
+		t.Fatal("want the lookup error")
+	}
+	fail = false
+	if _, err := c.LookupIP("other.example"); err != nil || calls["other.example"] != 2 {
+		t.Fatalf("err %v after %d lookups, want a second lookup", err, calls["other.example"])
+	}
+
+	// Names that are no longer asked for are dropped once they expire.
+	now = now.Add(LookupTTL)
+	c.LookupIP("third.example")
+	if len(c.m) != 1 {
+		t.Errorf("%d names kept, want only the fresh one", len(c.m))
+	}
+}
+
+func TestLookupCacheIsSafeForEveryPollingGoroutine(t *testing.T) {
+	c := &LookupCache{Lookup: func(string) ([]net.IP, error) { return []net.IP{net.ParseIP("93.184.216.34")}, nil }}
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				if _, err := c.LookupIP(fmt.Sprintf("s%d.example", (i+j)%7)); err != nil {
+					t.Error(err)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
