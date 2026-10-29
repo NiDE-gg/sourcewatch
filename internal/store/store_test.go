@@ -421,10 +421,15 @@ func TestNotificationOwnership(t *testing.T) {
 	if n, _ := s.CountUserNotifications("u1"); n != 1 {
 		t.Fatalf("count %d", n)
 	}
-	if ok, _ := s.DeleteNotification(id, "u2"); ok {
+	if ok, _ := s.DeleteNotification(id, "u2", "guild:1"); ok {
 		t.Fatal("deleted someone else's notification")
 	}
-	if ok, _ := s.DeleteNotification(id, "u1"); !ok {
+	for _, scope := range []string{"guild:2", "user:u1"} {
+		if ok, _ := s.DeleteNotification(id, "u1", scope); ok {
+			t.Fatalf("deleted from %s a notification made in guild:1", scope)
+		}
+	}
+	if ok, _ := s.DeleteNotification(id, "u1", "guild:1"); !ok {
 		t.Fatal("owner could not delete")
 	}
 }
@@ -582,7 +587,7 @@ func TestDeletingANotificationDeletesItsConditions(t *testing.T) {
 	if count(t, s, "conditions") != 2 {
 		t.Fatal("setup")
 	}
-	s.DeleteNotification(nid, "u")
+	s.DeleteNotification(nid, "u", "")
 	if n := count(t, s, "conditions"); n != 0 {
 		t.Fatalf("%d conditions left behind", n)
 	}
@@ -949,7 +954,7 @@ func TestAddingAConditionOrEnablingRestartsEveryServer(t *testing.T) {
 	if evs, _ := s.Process(a.ID, online("A", "m2", "x"), t0.Add(3*time.Hour)); len(evs) != 0 {
 		t.Fatalf("fired at once for what already held: %+v", evs)
 	}
-	if ok, _ := s.DeleteNotification(id, "u"); !ok {
+	if ok, _ := s.DeleteNotification(id, "u", "guild:1"); !ok {
 		t.Fatal("not deleted")
 	}
 	s.db.QueryRow("SELECT COUNT(*) FROM notification_state").Scan(&n)
@@ -1108,15 +1113,15 @@ func TestANewNotificationTakesTheLowestFreeID(t *testing.T) {
 		}
 	}
 	// Free the first one, and the next one uses it even though 2 to 5 are taken.
-	if ok, _ := s.DeleteNotification(1, "u"); !ok {
+	if ok, _ := s.DeleteNotification(1, "u", "guild:1"); !ok {
 		t.Fatal("not deleted")
 	}
 	if got := idOf(t, s, "u"); got != 1 {
 		t.Fatalf("after deleting 1, the next ID is %d", got)
 	}
 	// Gaps are filled from the bottom, one at a time.
-	s.DeleteNotification(2, "u")
-	s.DeleteNotification(4, "u")
+	s.DeleteNotification(2, "u", "guild:1")
+	s.DeleteNotification(4, "u", "guild:1")
 	for _, want := range []int64{2, 4, 6, 7} {
 		if got := idOf(t, s, "u"); got != want {
 			t.Fatalf("got ID %d, want %d", got, want)
@@ -1132,10 +1137,10 @@ func TestIDsAreSharedAcrossPeopleButNeverTouchSomeoneElses(t *testing.T) {
 		t.Fatalf("%d %d %d", a1, a2, b1)
 	}
 	// Bob cannot delete or change Alice's, so the free ID can only come from a deletion of its owner.
-	if ok, _ := s.DeleteNotification(a1, "bob"); ok {
+	if ok, _ := s.DeleteNotification(a1, "bob", "guild:1"); ok {
 		t.Fatal("bob deleted alice's notification")
 	}
-	s.DeleteNotification(a1, "alice")
+	s.DeleteNotification(a1, "alice", "guild:1")
 	if got := idOf(t, s, "bob"); got != 1 {
 		t.Fatalf("the freed ID goes to whoever makes the next one: got %d", got)
 	}
@@ -1191,7 +1196,7 @@ func TestADeletedNotificationLeavesNothingBehind(t *testing.T) {
 		Conditions: []rules.Condition{{Kind: rules.KindMap, Text: "m2"}, {Kind: rules.KindPlayerCount, Op: ">=", N: 1}}})
 	s.Process(a.ID, online("A", "m1", "x"), t0)
 	s.Process(a.ID, online("A", "m2", "x"), t0.Add(time.Minute))
-	s.DeleteNotification(id, "u")
+	s.DeleteNotification(id, "u", "guild:1")
 	for _, table := range []string{"notifications", "conditions", "notification_state"} {
 		if n := count(t, s, table); n != 0 {
 			t.Errorf("%s has %d rows left", table, n)
