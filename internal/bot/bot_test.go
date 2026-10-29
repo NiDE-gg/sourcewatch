@@ -1058,12 +1058,37 @@ func TestListStaysUnderDiscordsLimit(t *testing.T) {
 func TestNotifyTellsAboutUndeliverableOnce(t *testing.T) {
 	e := newEnv(t)
 	setupGuild(t, e, "a.example:27015")
-	e.b.execute(nguild("u1", 0, "status", str("value", "offline"), str("delivery", "dm")))
+	e.b.execute(nguild("u1", 0, "status", str("value", "offline")))
 	nid := ids(t, e, "u1")[0]
+	e.b.execute(nguild("u1", 0, "settings", str("id", fmt.Sprint(nid)), str("delivery", "dm")))
 	e.st.MarkUndeliverable(nid)
 	got := e.b.execute(nguild("u1", 0, "list"))
-	contains(t, got, "could not be delivered", "the server is offline")
+	contains(t, got, "could not be delivered", "refused the DM", "the server is offline", "switched them back on")
+	if strings.Contains(got, "their channel") {
+		t.Errorf("a DM notification was reported as a channel one: %q", got)
+	}
 	if got := e.b.execute(nguild("u1", 0, "list")); strings.Contains(got, "could not be delivered") {
+		t.Errorf("told twice: %q", got)
+	}
+}
+
+func TestNotifyTellsAboutARefusedChannelOnce(t *testing.T) {
+	e := newEnv(t)
+	setupGuild(t, e, "a.example:27015")
+	e.b.execute(nguild("u1", 0, "map", str("map-name", "de_dust2")))
+	in := nguild("u1", 0, "title-query", str("value", "event"))
+	in.ChannelID = "777"
+	e.b.execute(in)
+	for _, id := range ids(t, e, "u1") {
+		e.st.MarkUndeliverable(id)
+	}
+	got := e.b.execute(nguild("u1", 0, "list"))
+	contains(t, got, "could not be posted in their channel", "the map is `de_dust2`", "<#777>", "View Channel and Send Messages",
+		"/notify settings", "switched them back on")
+	if strings.Contains(got, "refused the DM") {
+		t.Errorf("a channel notification was reported as a DM: %q", got)
+	}
+	if got := e.b.execute(nguild("u1", 0, "list")); strings.Contains(got, "their channel") {
 		t.Errorf("told twice: %q", got)
 	}
 }
@@ -2042,12 +2067,12 @@ func TestShowIsAPublicListThatMentionsNoOneAndKeepsPrivateThingsOut(t *testing.T
 	}
 	got := e.b.execute(show)
 	contains(t, got, "**Notifications of <@u1>** (2)", "**All servers**", "the map is `m`", "the server is offline")
-	if strings.Contains(got, "could not be delivered") || strings.Contains(got, "Delete one with") {
+	if strings.Contains(got, "switched them back on") || strings.Contains(got, "Delete one with") {
 		t.Errorf("a public message must not carry the owner's private notices: %q", got)
 	}
 	// The same content is what list shows to its owner, who is told about failures.
 	private := e.b.execute(list)
-	contains(t, private, "**Your notifications** (2)", "could not be delivered", "Delete one with")
+	contains(t, private, "**Your notifications** (2)", "could not be posted in their channel", "switched them back on", "Delete one with")
 	// Its reply is not ephemeral and cannot ping.
 	d := replyDataWith(got, nil, isPublic(show))
 	if d.Flags&discordgo.MessageFlagsEphemeral != 0 || len(d.AllowedMentions.Parse) != 0 || len(d.AllowedMentions.Users) != 0 {

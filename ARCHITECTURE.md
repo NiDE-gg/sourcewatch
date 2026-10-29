@@ -48,7 +48,7 @@ poller ──A2S/UDP──> game servers
 | Store | Server list, last known state per server, notifications, per-user cooldowns. | SQLite | All persistent state |
 | Rules | Compares new state with last state and notifications. A matching rule out of its 5 s cooldown produces an event (C1, C2, C4). | Store | Nothing |
 | Notifiers | One interface, `Send(target, title, message)`. Providers are plugins. | Rules | Nothing |
-| Discord notifier | Sends a fired notification over Discord REST: in the channel `/notify` was run in (default) or by DM (E6). Mentions the player by Discord ID and always sets `allowed_mentions` with only that ID (D2). Honours `retry_after` on 429, stops on 401. | `discordgo` | Nothing |
+| Discord notifier | Sends a fired notification over Discord REST: in the channel `/notify` was run in (default) or by DM (E6). Mentions the player by Discord ID and always sets `allowed_mentions` with only that ID (D2). Honours `retry_after` on 429, stops on 401. A refused DM or channel marks the notification undeliverable (E7, D4). | `discordgo` | Nothing |
 | Bot | Slash command `/notify` (conditions: map, player, playercount, status, title-query; C1) and its management commands (C6). A Discord server sets the target game server and its players use `/notify` against it (C6). | `discordgo` (A5) | Nothing |
 
 ## D. Key flows

@@ -66,7 +66,7 @@ Keep the diagram in sync with the phase headings below: one node per phase, in o
 - [x] Mention the player by Discord ID and always set `allowed_mentions` with `parse` empty and only that ID (D2). Done when: a test shows the message contains `<@id>`, and that a player name containing `@everyone` is sent as plain text with no ping allowed.
 - [x] Handle closed DMs (error `50007`) for DM notifications (E7). Done when: a test with a stubbed 50007 response follows the E7 decision.
 - [x] Honour `retry_after` on 429 and stop on 401 (D1). Done when: `httptest` tests cover the 429 wait and the 401 stop.
-- [ ] A channel notification that Discord refuses (unknown channel, missing access or permissions) is marked undeliverable and the user is told (D4, E7). Done when: notifier tests map errors 10003, 50001 and 50013, a delivery test marks every notification of a refused channel message, and a handler test shows the notice with the channel reason.
+- [x] A channel notification that Discord refuses (unknown channel, missing access or permissions) is marked undeliverable and the user is told (D4, E7). Done when: notifier tests map errors 10003, 50001 and 50013, a delivery test marks every notification of a refused channel message, and a handler test shows the notice with the channel reason.
 
 ## Phase E: Server bot
 

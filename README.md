@@ -89,7 +89,7 @@ When a notification is saved, the bot replies **Notification saved as ID: 12**. 
 
 A new notification arrives in the channel where you made it (or by DM if you made it in a DM with the bot), and has a cooldown of **60 mins** after it fires. An admin can change both defaults for a Discord server (see below). Change either with `/notify settings`: `delivery` (**In this channel** or **By DM**) and `cooldown` (minutes).
 
-For DMs the bot sends you a test message first. If Discord blocks it, open a DM with the bot or allow DMs from server members, then try again.
+For DMs the bot sends you a test message first. If Discord blocks it, open a DM with the bot or allow DMs from server members, then try again. If a notification cannot be delivered later, because Discord refuses the DM or the bot can no longer post in the channel (it was deleted, or the bot lost its permissions there), it is paused, and you are told the next time you use `/notify`.
 
 ## Combine conditions with `id`
 

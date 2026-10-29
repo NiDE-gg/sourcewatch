@@ -326,7 +326,8 @@ func allowUser(tx execer, user string, now time.Time) (bool, error) {
 	return err == nil, err
 }
 
-// MarkUndeliverable stops delivery of a notification whose DM was refused (E7).
+// MarkUndeliverable stops delivery of a notification that Discord refused to deliver, by DM (E7) or
+// in its channel (D4).
 // Its events are skipped until TakeUndeliverable is called for its user.
 func (s *Store) MarkUndeliverable(id int64) error {
 	_, err := s.db.Exec("UPDATE notifications SET undeliverable = 1 WHERE id = ?", id)
