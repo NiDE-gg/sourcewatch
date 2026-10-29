@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -50,6 +51,9 @@ func run(log *slog.Logger) error {
 	}
 
 	p := poller.New(pipe.Handle)
+	// Servers added from Discord are checked for a public address on every poll. The ones in the
+	// config file are the operator's own and are trusted.
+	p.Dial = poller.PublicDialer(poller.DialA2S, net.LookupIP, cfg.Servers)
 	if !cfg.DisableGameTracker {
 		p.Fallback = poller.NewGameTracker() // used only when A2S gets no answer (B5)
 	}

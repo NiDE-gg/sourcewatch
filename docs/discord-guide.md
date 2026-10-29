@@ -18,7 +18,7 @@ Type `/help` for a short reminder.
 • **Remove:** `/server remove address:…` and pick the game server from the list that appears.
 • In a Discord server you need the **Manage Server** permission. In a DM with the bot you manage your own list.
 • Each Discord server (and each DM) can watch up to **3** game servers.
-• Private and local addresses are refused.
+• Only IPv4 game servers can be watched, and private and local addresses are refused.
 
 ## 📊 What is going on — `/status`
 `/status` has no options. It shows every game server you watch: online or offline, players, map, how fresh the data is, and the names of the players who are online. The reply is **public**, so everyone in the channel sees it. Players on the server's blacklist are left out.

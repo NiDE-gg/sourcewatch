@@ -48,7 +48,7 @@ Only you can see the bot's replies to your commands, except `/status` and `/noti
 - **Remove:** `/server remove address:…` and pick the game server from the list that appears.
 - In a Discord server you need the **Manage Server** permission. In a DM with the bot you manage your own list.
 - Each Discord server (and each DM) can watch up to **3** game servers.
-- Private and local addresses are refused.
+- Only IPv4 game servers can be watched, and private and local addresses are refused.
 
 ## What is going on — `/status`
 
