@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
+	"time"
 )
 
 var (
@@ -86,4 +88,58 @@ func PublicDialer(dial Dialer, lookup func(host string) ([]net.IP, error), trust
 		}
 		return dial(net.JoinHostPort(ip.String(), port))
 	}
+}
+
+// LookupTTL is how long LookupCache keeps what a host name resolved to.
+const LookupTTL = 10 * time.Minute
+
+// LookupCache remembers what host names resolved to for TTL, so the name of a game server is not
+// looked up again on every poll, and a short DNS outage does not count as the server failing.
+// Failed lookups are not kept. A name that is changed to point elsewhere is picked up within TTL.
+type LookupCache struct {
+	Lookup func(host string) ([]net.IP, error)
+	TTL    time.Duration    // default LookupTTL
+	Now    func() time.Time // default time.Now
+
+	mu sync.Mutex
+	m  map[string]lookupEntry
+}
+
+type lookupEntry struct {
+	ips []net.IP
+	at  time.Time
+}
+
+// LookupIP returns what host resolved to less than TTL ago, or looks it up.
+func (c *LookupCache) LookupIP(host string) ([]net.IP, error) {
+	now, ttl := time.Now, c.TTL
+	if c.Now != nil {
+		now = c.Now
+	}
+	if ttl <= 0 {
+		ttl = LookupTTL
+	}
+	c.mu.Lock()
+	e, ok := c.m[host]
+	c.mu.Unlock()
+	if ok && now().Sub(e.at) < ttl {
+		return e.ips, nil
+	}
+	ips, err := c.Lookup(host) // outside the lock, so one slow name does not hold up the others
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.m == nil {
+		c.m = map[string]lookupEntry{}
+	}
+	at := now()
+	for h, old := range c.m { // names no longer polled do not stay forever
+		if at.Sub(old.at) >= ttl {
+			delete(c.m, h)
+		}
+	}
+	c.m[host] = lookupEntry{ips: ips, at: at}
+	return ips, nil
 }
