@@ -301,6 +301,16 @@ func resetState(tx execer, notificationID int64) error {
 	return err
 }
 
+// startOver makes the notifications matching where (columns of notifications only) start over, on
+// every server: they wait for their conditions to become true again (E14, E19).
+func startOver(tx execer, where string, args ...any) error {
+	if _, err := tx.Exec("DELETE FROM notification_state WHERE notification_id IN (SELECT id FROM notifications "+where+")", args...); err != nil {
+		return err
+	}
+	_, err := tx.Exec("UPDATE notifications SET phase = ? "+where, append([]any{int(rules.PhaseNew)}, args...)...)
+	return err
+}
+
 // allowUser reports whether a message to user may go out now, and if so records it.
 func allowUser(tx execer, user string, now time.Time) (bool, error) {
 	var last int64
@@ -325,7 +335,8 @@ func (s *Store) MarkUndeliverable(id int64) error {
 
 // TakeUndeliverable returns the user's undeliverable notifications so the bot can
 // tell them (E7), and re-enables delivery for them. If the DMs are still refused,
-// the next failed delivery marks them again.
+// the next failed delivery marks them again. They start over, so a condition that
+// became true while they were stopped does not fire late (E19).
 func (s *Store) TakeUndeliverable(userID string) ([]rules.Notification, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -334,6 +345,9 @@ func (s *Store) TakeUndeliverable(userID string) ([]rules.Notification, error) {
 	defer tx.Rollback()
 	ns, err := queryNotifications(tx, "WHERE user_id = ? AND undeliverable = 1", userID)
 	if err != nil {
+		return nil, err
+	}
+	if err := startOver(tx, "WHERE user_id = ? AND undeliverable = 1", userID); err != nil {
 		return nil, err
 	}
 	if _, err := tx.Exec("UPDATE notifications SET undeliverable = 0 WHERE user_id = ? AND undeliverable = 1", userID); err != nil {
