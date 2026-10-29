@@ -200,8 +200,10 @@ type reply struct {
 // executeReply runs a command and also returns the buttons it needs. execute gives only the text.
 func (b *Bot) executeReply(in *discordgo.Interaction) reply {
 	r := reply{content: b.execute(in)}
-	if isNotifySubcommand(in, "reset") {
-		if n := b.notificationCount(who(in)); n > 0 {
+	// The reset question gets its buttons, unless sourcewatch is turned off here and the reply
+	// says so instead (E15).
+	if a := who(in); isNotifySubcommand(in, "reset") && b.guildSettings(a).Active {
+		if n := b.notificationCount(a); n > 0 {
 			r.components = resetButtons(n)
 		}
 	}

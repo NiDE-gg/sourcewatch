@@ -515,7 +515,15 @@ func (b *Bot) component(r responder, in *discordgo.Interaction) {
 
 func (b *Bot) componentReply(in *discordgo.Interaction) (string, bool) {
 	a := who(in)
-	switch in.MessageComponentData().CustomID {
+	custom := in.MessageComponentData().CustomID
+	if custom != customResetConfirm && custom != customResetCancel {
+		return "", false
+	}
+	// The buttons can be older than an admin turning sourcewatch off here (E15).
+	if !b.guildSettings(a).Active {
+		return disabledMessage, true
+	}
+	switch custom {
 	case customResetConfirm:
 		n, err := b.deps.Store.DeleteAllNotifications(a.UserID, a.Scope)
 		if err != nil {

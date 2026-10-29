@@ -1420,6 +1420,34 @@ func TestResetInADMSaysSo(t *testing.T) {
 	contains(t, e.b.execute(ndm("u1", "reset")), "deletes all 1 of your notifications in your DMs with me")
 }
 
+func TestResetDoesNothingWhileTurnedOff(t *testing.T) {
+	e := newEnv(t)
+	setupGuild(t, e, "a.example:27015")
+	e.b.execute(nguild("u1", 0, "title-query", str("value", "event")))
+	if r := e.b.executeReply(nguild("u1", 0, "reset")); len(r.components) != 1 {
+		t.Fatalf("the question needs its buttons: %+v", r.components)
+	}
+	e.b.execute(admin("a", manage, str("active", "disabled")))
+
+	r := e.b.executeReply(nguild("u1", 0, "reset"))
+	contains(t, r.content, "turned off in this Discord server")
+	if len(r.components) != 0 {
+		t.Errorf("buttons while turned off: %+v", r.components)
+	}
+	// A button from before an admin turned sourcewatch off deletes nothing.
+	in := guild("u1", 0, "notify")
+	in.Type = discordgo.InteractionMessageComponent
+	in.Data = discordgo.MessageComponentInteractionData{CustomID: customResetConfirm}
+	got, ok := e.b.componentReply(in)
+	if !ok {
+		t.Fatal("the press was not answered")
+	}
+	contains(t, got, "turned off in this Discord server")
+	if len(ids(t, e, "u1")) != 1 {
+		t.Fatal("deleted notifications while turned off")
+	}
+}
+
 func TestButtonsAreSentWithTheReply(t *testing.T) {
 	f := &fakeResponder{}
 	btn := resetButtons(2)
