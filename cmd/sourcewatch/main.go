@@ -16,8 +16,12 @@ import (
 	"github.com/kritzerenkrieg/sourcewatch/internal/store"
 )
 
+// version is set when a release is built: go build -ldflags "-X main.version=v1.2.3".
+var version = "dev"
+
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	log.Info("sourcewatch starting", "version", version)
 	if err := run(log); err != nil {
 		log.Error("sourcewatch stopped", "err", err)
 		os.Exit(1)
