@@ -94,7 +94,7 @@ Keep the diagram in sync with the phase headings below: one node per phase, in o
 **Goal:** a runnable, documented service.
 **Exit:** a fresh Debian host runs it under systemd from the README alone.
 
-- [ ] Single static binary build, cross-compiled for the chosen host (A1, A3). Done when: `CGO_ENABLED=0 go build` produces a binary that runs on the Debian server.
+- [x] Single static binary build, cross-compiled for the chosen host (A1, A3). Done when: `CGO_ENABLED=0 go build` produces a binary that runs on the Debian server.
 - [ ] Run as a service (systemd or similar) with restart on failure (A3). Done when: killing the process restarts it within a few seconds.
 - [ ] README with setup, config reference and the logo from `assets/` (A2). Done when: the setup steps work on a clean host.
 
