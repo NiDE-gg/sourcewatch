@@ -1327,7 +1327,7 @@ func TestAPlaceCanWatchThreeGameServers(t *testing.T) {
 	contains(t, e.b.execute(guild("admin", manage, "server", subcommand("add", str("address", "h3.example:27015")))), "Now watching")
 }
 
-func TestEveryTypeSaysItStaysQuietFor30MinutesByDefault(t *testing.T) {
+func TestEveryTypeSaysItStaysQuietFor60MinutesByDefault(t *testing.T) {
 	e := newEnv(t)
 	setupGuild(t, e, "a.example:27015")
 	for _, tc := range []struct {
